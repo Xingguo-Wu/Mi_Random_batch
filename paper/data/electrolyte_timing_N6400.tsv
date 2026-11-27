@@ -1,0 +1,4 @@
+method	nseeds	seconds_per_step
+elec_mirbe_a0p0_rho0p95	5	2.3887315000e-02
+elec_mirbe_a0p2_rho0p95	5	2.4348400000e-02
+elec_pppm	5	3.4139250000e-02

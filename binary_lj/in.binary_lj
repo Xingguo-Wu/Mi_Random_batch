@@ -1,0 +1,85 @@
+# Kob-Andersen 80:20 binary Lennard-Jones mixture; Mi-RBL production case.
+# Run in a separate output directory. Other methods are described in README.md.
+
+variable seed index 12345
+variable ncells index 13
+variable rho index 1.20
+variable initial_temp index 1.00
+variable target_temp index 0.60
+variable dt index 0.01
+variable langevin_damp index 2.0
+variable equil_steps index 150000
+variable prod_steps index 400000
+variable thermo_every index 100
+variable sample_every index 20
+variable average_count index 5
+variable rdf_nbin index 70
+variable rdf_cutoff index 3.50
+variable traj_every index 1000
+variable gain_every index 1000
+variable cutmax index 2.50
+variable rc index 1.20
+variable p index 10
+variable ema_beta index 0.95
+variable mi_alpha index 0.31
+variable mi_eps index 1.0e-8
+variable mi_s0 index 1.0
+variable boxL equal v_ncells*(4.0/v_rho)^(1.0/3.0)
+variable average_freq equal v_sample_every*v_average_count
+variable rdf_comm_cutoff equal v_rdf_cutoff+0.30
+
+units lj
+dimension 3
+atom_style atomic
+boundary p p p
+newton off
+
+region box block 0 ${boxL} 0 ${boxL} 0 ${boxL}
+create_box 2 box
+lattice fcc ${rho}
+create_atoms 1 box
+set group all type/fraction 2 0.20 ${seed}
+mass 1 1.0
+mass 2 1.0
+velocity all create ${initial_temp} ${seed} mom yes rot no dist gaussian
+displace_atoms all random 0.03 0.03 0.03 ${seed} units box
+
+# Minimize the same full LJ potential before selecting the production method.
+pair_style lj/cut ${cutmax}
+pair_coeff 1 1 1.0 1.00 2.50
+pair_coeff 1 2 1.5 0.80 2.00
+pair_coeff 2 2 0.5 0.88 2.20
+pair_modify shift yes
+neighbor 0.30 bin
+neigh_modify every 1 delay 0 check yes
+thermo_style custom step atoms temp density ke
+min_style cg
+minimize 1.0e-8 1.0e-10 1000 10000
+
+fix mirbl_state all property/atom d_mirbl_state d_mirbl_gain
+pair_style lj/cut/mirbl/lag ${cutmax} ${rc} ${p} ${ema_beta} ${mi_alpha} ${mi_eps} ${mi_s0} ${seed}
+pair_coeff 1 1 1.0 1.00 2.50
+pair_coeff 1 2 1.5 0.80 2.00
+pair_coeff 2 2 0.5 0.88 2.20
+pair_modify shift yes
+
+timestep ${dt}
+fix int all nve
+fix bath all langevin ${initial_temp} ${target_temp} ${langevin_damp} ${seed} zero yes
+thermo ${thermo_every}
+run ${equil_steps}
+
+unfix bath
+velocity all scale ${target_temp}
+reset_timestep 0
+fix bath all langevin ${target_temp} ${target_temp} ${langevin_damp} ${seed} zero yes
+
+comm_modify cutoff ${rdf_comm_cutoff}
+compute rdfall all rdf ${rdf_nbin} 1 1 1 2 2 2 cutoff ${rdf_cutoff}
+fix rdfout all ave/time ${sample_every} ${average_count} ${average_freq} c_rdfall[*] file rdf.binary_lj_ka.dat mode vector
+dump traj all custom ${traj_every} traj_unwrapped.lammpstrj id type xu yu zu
+dump_modify traj sort id format float %.16g
+dump gain all custom ${gain_every} pro_mirbl_state.dump id type d_mirbl_gain
+dump_modify gain sort id format float %.16g
+thermo_modify flush yes
+run ${prod_steps}

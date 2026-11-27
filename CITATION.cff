@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "Please cite the associated manuscript and LAMMPS when using this repository; see README.md."
+title: "Moment-informed force rescaling for random-batch Langevin dynamics"
+type: software
+authors:
+  - family-names: Wu
+    given-names: Xingguo
+  - family-names: Wang
+    given-names: Yangshuai
+  - family-names: Xu
+    given-names: Zhenli
+license: GPL-2.0-only

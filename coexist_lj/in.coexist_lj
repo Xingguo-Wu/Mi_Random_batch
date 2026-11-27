@@ -1,0 +1,55 @@
+# Gas-liquid coexistence LJ: particlewise Mi-RBL (P=5, alpha=0.59).
+# Run each case in its own output directory; override index variables with -var.
+
+variable        n index 7000
+variable        rho index 0.2
+variable        temp index 0.9
+variable        dt index 0.01
+variable        seed index 12345
+variable        equil_steps index 200000
+variable        prod_steps index 300000
+variable        thermo_every index 100
+variable        dump_every index 100
+variable        gain_every index 1000
+variable        langevin_damp index 4.0
+variable        cut_lj index 6.0
+variable        core_size index 2.0
+variable        shell_samples index 5
+variable        rho_mirbl index 0.95
+variable        alpha index 0.59
+variable        eps index 1.0e-8
+variable        force_s0 index 1.0
+
+variable        lbox equal (${n}/${rho})^(1.0/3.0)
+units           lj
+atom_style      atomic
+boundary        p p p
+newton          off
+
+region          box block 0 ${lbox} 0 ${lbox} 0 ${lbox}
+create_box      1 box
+create_atoms    1 random ${n} ${seed} box overlap 0.85 maxtry 100000
+mass            1 1.0
+velocity        all create ${temp} ${seed} mom yes rot no dist gaussian
+
+fix             mirbl_state all property/atom d_mirbl_state d_mirbl_gain
+pair_style      lj/cut/mirbl/lag ${cut_lj} ${core_size} ${shell_samples} ${rho_mirbl} ${alpha} ${eps} ${force_s0} ${seed}
+pair_coeff      1 1 1.0 1.0 ${cut_lj}
+pair_modify     shift no tail no
+neighbor        0.3 bin
+neigh_modify    every 1 delay 0 check yes one 8000 page 800000
+
+timestep        ${dt}
+fix             bath all langevin ${temp} ${temp} ${langevin_damp} ${seed}
+fix             int all nve
+thermo          ${thermo_every}
+thermo_style    custom step atoms temp density ke
+
+run             ${equil_steps}
+
+dump            traj all custom ${dump_every} traj_unwrapped.lammpstrj id type xu yu zu
+dump_modify     traj sort id first yes
+dump            gain all custom ${gain_every} pro_mirbl_state.dump id type x y z d_mirbl_state d_mirbl_gain
+dump_modify     gain sort id first yes
+
+run             ${prod_steps}

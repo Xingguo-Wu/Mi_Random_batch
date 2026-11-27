@@ -1,0 +1,81 @@
+# Primitive 3:1 electrolyte; one particlewise Mi-RBE case.
+# Run each seed and parameter combination in its own output directory.
+
+variable seed index 11031
+variable lbox index 25.6
+variable n_cation index 800
+variable n_anion index 2400
+variable temp index 1.0
+variable dt index 0.0025
+variable langevin_damp index 4.0
+variable equil_steps index 150000
+variable prod_steps index 200000
+variable thermo_every index 100
+
+variable cut_lj index 1.12246204831
+variable cut_coul index 8.0
+variable dielectric index 0.35
+variable ion_overlap index 0.90
+
+variable p index 10
+variable ema_beta index 0.95
+variable mi_alpha index 0.4
+variable mi_eps index 1.0e-8
+variable mi_s0 index 1.0
+variable rbe_acc index 1.0e-4
+
+variable traj_every index 100
+variable gain_every index 1000
+
+variable seed_anion equal v_seed+10000
+variable vel_seed equal v_seed+20000
+variable langevin_seed equal v_seed+30000
+variable mirbe_seed equal v_seed+40000
+variable xlo equal -0.5*v_lbox
+variable xhi equal 0.5*v_lbox
+
+units lj
+atom_style charge
+boundary p p p
+newton on
+
+region box block ${xlo} ${xhi} ${xlo} ${xhi} ${xlo} ${xhi}
+create_box 2 box
+create_atoms 1 random ${n_cation} ${seed} box units box overlap ${ion_overlap} maxtry 200000
+create_atoms 2 random ${n_anion} ${seed_anion} box units box overlap ${ion_overlap} maxtry 200000
+mass 1 1.0
+mass 2 1.0
+set type 1 charge 3.0
+set type 2 charge -1.0
+velocity all create ${temp} ${vel_seed} mom yes rot no dist gaussian
+
+pair_style lj/cut/coul/long ${cut_lj} ${cut_coul}
+pair_coeff 1 1 1.0 1.0 ${cut_lj}
+pair_coeff 1 2 1.0 1.0 ${cut_lj}
+pair_coeff 2 2 1.0 1.0 ${cut_lj}
+pair_modify shift yes tail no
+dielectric ${dielectric}
+
+fix mirbe_state all property/atom d_mirbe_state
+fix mirbe_gain all property/atom d_mirbe_gain
+kspace_style mi/rbe/lag ${rbe_acc} ${p} ${ema_beta} ${mi_alpha} ${mi_eps} ${mi_s0} ${mirbe_seed}
+
+neighbor 0.4 bin
+neigh_modify every 1 delay 0 check yes one 12000 page 1000000
+fix bath all langevin ${temp} ${temp} ${langevin_damp} ${langevin_seed} zero yes
+fix int all nve
+compute temp_ions all temp
+thermo_modify temp temp_ions flush yes
+timestep ${dt}
+thermo ${thermo_every}
+thermo_style custom step atoms c_temp_ions ke
+
+run ${equil_steps}
+reset_timestep 0
+
+dump traj all custom ${traj_every} traj.electrolyte_bulk.lammpstrj id type q x y z xu yu zu
+dump_modify traj sort id
+dump gain all custom ${gain_every} mirbe_state.dump id type d_mirbe_state d_mirbe_gain
+dump_modify gain sort id
+
+run ${prod_steps}
