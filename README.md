@@ -1,13 +1,13 @@
 # Moment-informed force rescaling for random-batch Langevin dynamics
 
-This repository contains implementations of Mi-RBL, Mi-RBE, and VR-RBL built on LAMMPS 15 Jun 2023, along with simulation inputs, processed data, and plotting scripts for the paper.
+This repository contains implementations of Mi-RBL, Mi-RBE, and VR-RBL built on LAMMPS 15 Jun 2023, along with simulation inputs, data, and plotting scripts for the paper.
 
 ## Repository layout
 
 - `src/`, `cmake/`, `doc/`: LAMMPS source code, build files, and upstream documentation.
 - `coexist_lj/`, `binary_lj/`, `electrolyte/`: inputs and short instructions for the three simulation systems.
 - `scripts/compile.sh`: a general CMake build script with MPI and KSPACE enabled.
-- `paper/data/`, `paper/plotting/`, `paper/postprocessing/`, `paper/figures/`: processed data, plotting scripts, postprocessing scripts, and generated figures.
+- `paper/data/`, `paper/plotting/`, `paper/postprocessing/`, `paper/figures/`: data, plotting scripts, postprocessing scripts, and generated figures.
 
 ## Getting started
 
